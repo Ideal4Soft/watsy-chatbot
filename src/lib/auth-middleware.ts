@@ -83,9 +83,40 @@ export function isTokenExpired(token: string): boolean {
     const decoded = jwt.decode(token) as { exp?: number }
     const exp = decoded?.exp
     if (!exp) return true
-    
+
     return Date.now() >= exp * 1000
   } catch {
     return true
+  }
+}
+
+/**
+ * Verify a refresh token (middleware-safe)
+ */
+export function verifyRefreshToken(token: string): AuthResult {
+  try {
+    // Check if JWT refresh secret is available
+    const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET
+    if (!jwtRefreshSecret) {
+      return {
+        success: false,
+        error: 'JWT_REFRESH_SECRET not available in middleware context'
+      }
+    }
+
+    const decoded = (jwt.verify as any)(token, jwtRefreshSecret, {
+      issuer: 'watsy-chatbot',
+      audience: 'watsy-users'
+    }) as JWTPayload
+
+    return {
+      success: true,
+      user: decoded
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Invalid refresh token'
+    }
   }
 }

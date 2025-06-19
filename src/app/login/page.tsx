@@ -67,8 +67,13 @@ export default function LoginPage() {
       const result = await login(data.email, data.password, data.rememberMe)
 
       if (result.success) {
-        // Redirect to intended page or dashboard
-        router.push(redirectTo)
+        // Mark as new login for notifications
+        sessionStorage.setItem('newLogin', 'true')
+
+        // Small delay to ensure auth state is updated
+        setTimeout(() => {
+          router.push(redirectTo)
+        }, 100)
       } else {
         setSubmitError(result.error || 'Login failed. Please try again.')
       }

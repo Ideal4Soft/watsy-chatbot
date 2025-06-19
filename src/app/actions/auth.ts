@@ -214,6 +214,7 @@ export async function loginUser(input: LoginInput): Promise<LoginResult> {
     }
     
     // Check email verification (optional - can be enforced based on requirements)
+    // Note: emailVerified is DateTime? - null means not verified, any date means verified
     if (!user.emailVerified) {
       return {
         success: false,

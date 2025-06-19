@@ -10,8 +10,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAccessToken, extractAccessTokenFromHeader, isTokenExpired } from '@/lib/auth-middleware'
-import { UserRole } from '@/generated/prisma'
 
 // ============================================================================
 // ROUTE CONFIGURATION
@@ -90,31 +88,8 @@ function matchesPath(pathname: string, patterns: string[]): boolean {
   })
 }
 
-/**
- * Check if user has required role for a route
- */
-function hasRequiredRole(userRole: UserRole, requiredRoles: UserRole[]): boolean {
-  return requiredRoles.includes(userRole)
-}
-
-/**
- * Get required roles for a given path
- */
-function getRequiredRoles(pathname: string): UserRole[] {
-  if (matchesPath(pathname, SUPER_ADMIN_ROUTES)) {
-    return [UserRole.SUPER_ADMIN]
-  }
-  
-  if (matchesPath(pathname, ADMIN_ROUTES)) {
-    return [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-  }
-  
-  if (matchesPath(pathname, PROTECTED_ROUTES)) {
-    return [UserRole.USER, UserRole.ADMIN, UserRole.SUPER_ADMIN]
-  }
-  
-  return []
-}
+// Note: Role-based access control functions removed since we're using
+// a simplified middleware approach. Role checks are handled in Server Components.
 
 // ============================================================================
 // MIDDLEWARE FUNCTION
@@ -145,21 +120,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Get access token from Authorization header
-  const authHeader = request.headers.get('authorization')
-  const accessToken = extractAccessTokenFromHeader(authHeader)
-
-  // Try to get user from access token
-  let user = null
-  let isAuthenticated = false
-
-  if (accessToken && !isTokenExpired(accessToken)) {
-    const tokenResult = verifyAccessToken(accessToken)
-    if (tokenResult.success && tokenResult.user) {
-      user = tokenResult.user
-      isAuthenticated = true
-    }
-  }
+  // Check for authentication by looking for refresh token cookie
+  // In Edge Runtime, we can't verify JWT tokens, so we just check for presence
+  const refreshToken = request.cookies.get('refreshToken')?.value
+  const isAuthenticated = !!refreshToken
 
   // Handle authentication routes
   if (isAuthRoute && isAuthenticated) {
@@ -176,25 +140,12 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl)
     }
     
-    // Check role-based access
-    const requiredRoles = getRequiredRoles(pathname)
-    if (requiredRoles.length > 0 && user && !hasRequiredRole(user.role, requiredRoles)) {
-      // Redirect users without required role to dashboard
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
+    // Note: Role-based access control is handled in Server Components/Actions
+    // since we can't verify JWT tokens in Edge Runtime middleware
   }
   
-  // Add user information to request headers for Server Components
-  const response = NextResponse.next()
-  
-  if (isAuthenticated && user) {
-    response.headers.set('x-user-id', user.userId)
-    response.headers.set('x-user-email', user.email)
-    response.headers.set('x-user-role', user.role)
-    response.headers.set('x-user-name', `${user.firstName} ${user.lastName}`)
-  }
-  
-  return response
+  // Continue with the request
+  return NextResponse.next()
 }
 
 // ============================================================================

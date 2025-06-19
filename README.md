@@ -252,9 +252,14 @@ scripts/                # Development and testing scripts
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+## 📚 Documentation
+
+- **[Admin Setup Guide](docs/admin-setup.md)** - Database seeding and admin user management
+- **[Contributing Guidelines](CONTRIBUTING.md)** - Development workflow and standards
+
 ## 🆘 Support
 
-- **Documentation**: Check this README and [Contributing Guidelines](CONTRIBUTING.md)
+- **Documentation**: Check this README and project documentation
 - **Issues**: Report bugs or request features via GitHub Issues
 - **Discussions**: Ask questions in GitHub Discussions
 

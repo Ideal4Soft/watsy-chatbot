@@ -1,0 +1,626 @@
+// Watsy-Chatbot Platform Database Schema
+// Comprehensive schema for WhatsApp chatbot SaaS platform
+// Built with Prisma ORM for PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELLED
+  PAST_DUE
+  TRIALING
+}
+
+enum WhatsAppDeviceStatus {
+  DISCONNECTED
+  CONNECTING
+  CONNECTED
+  FAILED
+  BANNED
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  STICKER
+  LOCATION
+  CONTACT
+}
+
+enum MessageDirection {
+  INCOMING
+  OUTGOING
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum ChatbotTriggerType {
+  KEYWORD
+  WELCOME
+  FALLBACK
+  SCHEDULED
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  INACTIVE
+  REVOKED
+}
+
+enum WebhookEventType {
+  MESSAGE_RECEIVED
+  MESSAGE_SENT
+  DEVICE_STATUS_CHANGED
+  CONNECTION_LOST
+  CONNECTION_RESTORED
+}
+
+// ============================================================================
+// USER MANAGEMENT
+// ============================================================================
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  emailVerified     DateTime?
+  emailVerificationToken String?
+  password          String
+  firstName         String
+  lastName          String
+  avatar            String?
+  role              UserRole  @default(USER)
+
+  // MFA Settings
+  mfaEnabled        Boolean   @default(false)
+  mfaSecret         String?
+  mfaBackupCodes    String[]
+
+  // Account Status
+  isActive          Boolean   @default(true)
+  lastLoginAt       DateTime?
+  passwordResetToken String?
+  passwordResetExpires DateTime?
+
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  subscription      Subscription?
+  whatsappDevices   WhatsAppDevice[]
+  chatbots          Chatbot[]
+  messages          Message[]
+  apiKeys           ApiKey[]
+  webhooks          Webhook[]
+
+  @@map("users")
+}
+
+// ============================================================================
+// SUBSCRIPTION MANAGEMENT
+// ============================================================================
+
+model Subscription {
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  plan              SubscriptionPlan   @default(FREE)
+  status            SubscriptionStatus @default(ACTIVE)
+
+  // Stripe Integration
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  stripePriceId         String?
+
+  // Billing
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  cancelAtPeriodEnd     Boolean           @default(false)
+  canceledAt            DateTime?
+  trialStart            DateTime?
+  trialEnd              DateTime?
+
+  // Usage Limits
+  maxDevices            Int               @default(1)
+  maxMessages           Int               @default(100)
+  maxChatbots           Int               @default(1)
+  maxApiKeys            Int               @default(1)
+
+  // Usage Tracking
+  devicesUsed           Int               @default(0)
+  messagesUsed          Int               @default(0)
+  chatbotsUsed          Int               @default(0)
+  apiKeysUsed           Int               @default(0)
+
+  // Reset monthly usage
+  usageResetAt          DateTime          @default(now())
+
+  // Timestamps
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  // Relations
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ============================================================================
+// WHATSAPP INTEGRATION
+// ============================================================================
+
+model WhatsAppDevice {
+  id                String                @id @default(cuid())
+  userId            String
+  name              String
+  phoneNumber       String?
+
+  // Device Status
+  status            WhatsAppDeviceStatus  @default(DISCONNECTED)
+  lastConnectedAt   DateTime?
+  lastDisconnectedAt DateTime?
+  connectionAttempts Int                  @default(0)
+
+  // Session Data
+  sessionData       Json?                 // Baileys session data
+  qrCode            String?               // Base64 QR code for pairing
+  qrCodeExpires     DateTime?
+
+  // Device Info
+  deviceInfo        Json?                 // Device information from Baileys
+  batteryLevel      Int?
+  isCharging        Boolean?
+
+  // Rate Limiting
+  messagesSentToday Int                   @default(0)
+  lastMessageSentAt DateTime?
+  rateLimitResetAt  DateTime              @default(now())
+
+  // Timestamps
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages          Message[]
+  chatbots          Chatbot[]
+  contacts          Contact[]
+
+  @@unique([userId, phoneNumber])
+  @@map("whatsapp_devices")
+}
+
+// ============================================================================
+// MESSAGING SYSTEM
+// ============================================================================
+
+model Message {
+  id                String            @id @default(cuid())
+  deviceId          String
+  chatbotId         String?
+  userId            String
+
+  // Message Content
+  type              MessageType       @default(TEXT)
+  content           String?           // Text content
+  mediaUrl          String?           // URL for media files
+  mediaType         String?           // MIME type for media
+  mediaSize         Int?              // File size in bytes
+  caption           String?           // Caption for media messages
+
+  // WhatsApp Specific
+  whatsappMessageId String?           // WhatsApp message ID
+  quotedMessageId   String?           // ID of quoted message
+
+  // Contact Information
+  fromNumber        String            // Sender's phone number
+  toNumber          String            // Recipient's phone number
+  fromName          String?           // Sender's display name
+  toName            String?           // Recipient's display name
+
+  // Message Flow
+  direction         MessageDirection
+  status            MessageStatus     @default(PENDING)
+
+  // Delivery Information
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  errorMessage      String?
+
+  // Automation
+  isAutomated       Boolean           @default(false)
+  triggeredBy       String?           // Trigger that caused this message
+
+  // Timestamps
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Relations
+  device            WhatsAppDevice    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  chatbot           Chatbot?          @relation(fields: [chatbotId], references: [id], onDelete: SetNull)
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quotedMessage     Message?          @relation("MessageQuotes", fields: [quotedMessageId], references: [id])
+  quotes            Message[]         @relation("MessageQuotes")
+
+  @@index([deviceId, createdAt])
+  @@index([fromNumber, toNumber])
+  @@index([whatsappMessageId])
+  @@map("messages")
+}
+
+model Contact {
+  id                String            @id @default(cuid())
+  deviceId          String
+  phoneNumber       String
+  name              String?
+  profilePicture    String?
+
+  // Contact Status
+  isBlocked         Boolean           @default(false)
+  isGroup           Boolean           @default(false)
+  groupParticipants Json?             // For group contacts
+
+  // Interaction Stats
+  lastMessageAt     DateTime?
+  messageCount      Int               @default(0)
+
+  // Timestamps
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Relations
+  device            WhatsAppDevice    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, phoneNumber])
+  @@map("contacts")
+}
+
+// ============================================================================
+// CHATBOT SYSTEM
+// ============================================================================
+
+model Chatbot {
+  id                String              @id @default(cuid())
+  userId            String
+  deviceId          String
+  name              String
+  description       String?
+
+  // Chatbot Configuration
+  isActive          Boolean             @default(true)
+  welcomeMessage    String?
+  fallbackMessage   String              @default("I didn't understand that. Please try again.")
+
+  // Flow Configuration (React Flow)
+  flowData          Json?               // React Flow nodes and edges
+
+  // Settings
+  responseDelay     Int                 @default(1000) // Delay in milliseconds
+  typingIndicator   Boolean             @default(true)
+
+  // Statistics
+  totalInteractions Int                 @default(0)
+  totalMessages     Int                 @default(0)
+  lastUsedAt        DateTime?
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device            WhatsAppDevice      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  triggers          ChatbotTrigger[]
+  templates         MessageTemplate[]
+  messages          Message[]
+
+  @@unique([userId, deviceId, name])
+  @@map("chatbots")
+}
+
+model ChatbotTrigger {
+  id                String              @id @default(cuid())
+  chatbotId         String
+  type              ChatbotTriggerType
+
+  // Trigger Configuration
+  keyword           String?             // For KEYWORD type
+  isExactMatch      Boolean             @default(false)
+  isCaseSensitive   Boolean             @default(false)
+
+  // Response Configuration
+  responseMessage   String
+  responseDelay     Int                 @default(1000)
+
+  // Scheduling (for SCHEDULED type)
+  scheduledAt       DateTime?
+  cronExpression    String?
+  timezone          String?
+
+  // Statistics
+  triggerCount      Int                 @default(0)
+  lastTriggeredAt   DateTime?
+
+  // Status
+  isActive          Boolean             @default(true)
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  chatbot           Chatbot             @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  @@map("chatbot_triggers")
+}
+
+model MessageTemplate {
+  id                String              @id @default(cuid())
+  chatbotId         String
+  name              String
+  content           String
+
+  // Template Configuration
+  variables         Json?               // Template variables
+  mediaUrl          String?
+  mediaType         String?
+
+  // Usage Statistics
+  usageCount        Int                 @default(0)
+  lastUsedAt        DateTime?
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  chatbot           Chatbot             @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  @@unique([chatbotId, name])
+  @@map("message_templates")
+}
+
+// ============================================================================
+// API MANAGEMENT
+// ============================================================================
+
+model ApiKey {
+  id                String              @id @default(cuid())
+  userId            String
+  name              String
+  key               String              @unique
+
+  // Permissions
+  permissions       Json                // Array of allowed operations
+  allowedIPs        String[]            // IP whitelist
+
+  // Rate Limiting
+  rateLimit         Int                 @default(100) // Requests per hour
+  requestsUsed      Int                 @default(0)
+  rateLimitResetAt  DateTime            @default(now())
+
+  // Status
+  status            ApiKeyStatus        @default(ACTIVE)
+  lastUsedAt        DateTime?
+
+  // Expiration
+  expiresAt         DateTime?
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+// ============================================================================
+// WEBHOOK SYSTEM
+// ============================================================================
+
+model Webhook {
+  id                String              @id @default(cuid())
+  userId            String
+  name              String
+  url               String
+
+  // Configuration
+  events            WebhookEventType[]  // Events to listen for
+  isActive          Boolean             @default(true)
+  secret            String?             // For signature verification
+
+  // Retry Configuration
+  maxRetries        Int                 @default(3)
+  retryDelay        Int                 @default(5000) // Milliseconds
+
+  // Statistics
+  totalDeliveries   Int                 @default(0)
+  successfulDeliveries Int              @default(0)
+  failedDeliveries  Int                 @default(0)
+  lastDeliveryAt    DateTime?
+  lastSuccessAt     DateTime?
+  lastFailureAt     DateTime?
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries        WebhookDelivery[]
+
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id                String              @id @default(cuid())
+  webhookId         String
+  eventType         WebhookEventType
+
+  // Delivery Details
+  payload           Json
+  responseStatus    Int?
+  responseBody      String?
+  responseHeaders   Json?
+
+  // Timing
+  deliveredAt       DateTime?
+  duration          Int?                // Response time in milliseconds
+
+  // Retry Information
+  attemptNumber     Int                 @default(1)
+  isSuccessful      Boolean             @default(false)
+  errorMessage      String?
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  webhook           Webhook             @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt])
+  @@map("webhook_deliveries")
+}
+
+// ============================================================================
+// ANALYTICS & REPORTING
+// ============================================================================
+
+model Analytics {
+  id                String              @id @default(cuid())
+  userId            String
+  deviceId          String?
+  chatbotId         String?
+
+  // Metrics
+  date              DateTime            @db.Date
+  messagesReceived  Int                 @default(0)
+  messagesSent      Int                 @default(0)
+  uniqueContacts    Int                 @default(0)
+  chatbotInteractions Int               @default(0)
+
+  // Performance Metrics
+  averageResponseTime Int?              // Milliseconds
+  successRate       Float?              // Percentage
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([userId, deviceId, chatbotId, date])
+  @@index([userId, date])
+  @@map("analytics")
+}
+
+// ============================================================================
+// SYSTEM MANAGEMENT
+// ============================================================================
+
+model SystemSettings {
+  id                String              @id @default(cuid())
+  key               String              @unique
+  value             Json
+  description       String?
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@map("system_settings")
+}
+
+model AuditLog {
+  id                String              @id @default(cuid())
+  userId            String?
+  action            String
+  resource          String
+  resourceId        String?
+
+  // Details
+  oldValues         Json?
+  newValues         Json?
+  metadata          Json?
+
+  // Request Information
+  ipAddress         String?
+  userAgent         String?
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+
+  @@index([userId, createdAt])
+  @@index([resource, resourceId])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// MEDIA STORAGE
+// ============================================================================
+
+model MediaFile {
+  id                String              @id @default(cuid())
+  userId            String
+  originalName      String
+  fileName          String              @unique
+  mimeType          String
+  size              Int
+
+  // Storage Information
+  storageProvider   String              @default("local") // local, s3, etc.
+  storagePath       String
+  publicUrl         String?
+
+  // Metadata
+  width             Int?
+  height            Int?
+  duration          Int?                // For video/audio files
+
+  // Usage Tracking
+  downloadCount     Int                 @default(0)
+  lastAccessedAt    DateTime?
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([userId, createdAt])
+  @@map("media_files")
+}

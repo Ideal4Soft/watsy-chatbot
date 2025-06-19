@@ -101,3 +101,5 @@ storybook-static/
 
 # But allow .env.example
 !.env.example
+
+/src/generated/prisma

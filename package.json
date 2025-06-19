@@ -1,0 +1,36 @@
+{
+  "name": "watsy-chatbot",
+  "version": "0.1.0",
+  "description": "A comprehensive WhatsApp chatbot SaaS platform built with Next.js 14+, featuring multi-tenant architecture, real-time messaging, and visual flow builder",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test:connections": "node scripts/test-connections.js",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "dependencies": {
+    "next": "15.3.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.15.4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^16.5.0",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.4",
+    "pg": "^8.16.1",
+    "redis": "^5.5.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

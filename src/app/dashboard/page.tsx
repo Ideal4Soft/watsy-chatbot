@@ -43,15 +43,16 @@ export default function DashboardPage() {
   console.log('Dashboard render:', { isLoading, isAuthenticated, user: user?.firstName, role })
 
   useEffect(() => {
-    console.log('Dashboard useEffect:', { isLoading, isAuthenticated })
-    // Redirect to login if not authenticated
-    if (!isLoading && !isAuthenticated) {
-      console.log('Redirecting to login...')
+    console.log('Dashboard useEffect:', { isLoading, isAuthenticated, user: user?.firstName })
+    // Only redirect if we're sure the user is not authenticated and not loading
+    if (!isLoading && !isAuthenticated && !user) {
+      console.log('Dashboard: User not authenticated, redirecting to login...')
       // Clear any stale cookies before redirecting
       clearStaleCookies()
-      router.push('/login')
+      // Use replace to avoid back button issues
+      router.replace('/login?redirect=%2Fdashboard')
     }
-  }, [isAuthenticated, isLoading, router, clearStaleCookies])
+  }, [isAuthenticated, isLoading, user, router, clearStaleCookies])
 
   const handleLogout = async () => {
     await logout()

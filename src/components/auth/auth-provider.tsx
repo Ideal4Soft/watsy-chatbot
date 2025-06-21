@@ -54,18 +54,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [isAuthenticated, user])
 
-  // Handle authentication state changes
+  // Handle authentication state changes - simplified to avoid conflicts
   useEffect(() => {
     if (!isInitializing) {
-      // Handle logout redirect
-      if (!isAuthenticated && isProtectedRoute(pathname)) {
+      console.log('AuthProvider: Auth state changed', {
+        isAuthenticated,
+        pathname,
+        isProtected: isProtectedRoute(pathname),
+        isAuth: isAuthRoute(pathname)
+      })
+
+      // Only handle automatic redirects for protected routes when clearly unauthenticated
+      // Let individual pages handle their own authentication logic
+      if (!isAuthenticated && isProtectedRoute(pathname) && pathname !== '/dashboard') {
+        console.log('AuthProvider: Redirecting to login from protected route:', pathname)
         router.push(`/login?redirect=${encodeURIComponent(pathname)}`)
-      }
-      
-      // Handle login redirect
-      if (isAuthenticated && isAuthRoute(pathname)) {
-        const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
-        router.push(redirectTo)
       }
     }
   }, [isAuthenticated, pathname, router, isInitializing])

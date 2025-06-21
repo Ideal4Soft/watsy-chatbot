@@ -76,8 +76,8 @@ export default function LoginPage() {
   useEffect(() => {
     // If user is already authenticated and not coming from a redirect loop, go to dashboard
     if (isAuthenticated && !fromDashboard && !isLoading) {
-      console.log('User already authenticated, redirecting to:', redirectTo)
-      router.push(redirectTo)
+      console.log('Login: User already authenticated, redirecting to:', redirectTo)
+      router.replace(redirectTo)
     }
   }, [isAuthenticated, fromDashboard, redirectTo, router, isLoading])
 
@@ -96,8 +96,9 @@ export default function LoginPage() {
         // Use router.replace instead of push to avoid back button issues
         // Add a small delay to ensure state is updated
         setTimeout(() => {
+          console.log('Login: Executing redirect to:', redirectTo)
           router.replace(redirectTo)
-        }, 200)
+        }, 300)
       } else {
         console.log('Login failed:', result.error)
         setSubmitError(result.error || 'Login failed. Please try again.')

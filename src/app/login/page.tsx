@@ -16,7 +16,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore, useAuth, useAuthActions } from '@/stores/auth'
 import { loginSchema, type LoginInput } from '@/schemas'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FormField } from '@/components/ui/form-field'
@@ -30,8 +30,11 @@ export default function LoginPage() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/dashboard'
   const message = searchParams.get('message')
+  const fromDashboard = searchParams.get('from') === 'login'
 
+  const { isAuthenticated } = useAuth()
   const { login, isLoading, error, clearError } = useAuthStore()
+  const { clearStaleCookies } = useAuthActions()
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const {
@@ -60,26 +63,48 @@ export default function LoginPage() {
     }
   }, [error, clearError])
 
+  // Handle authentication state and clear stale cookies
+  useEffect(() => {
+    // If coming from dashboard redirect, clear any stale cookies
+    if (fromDashboard) {
+      console.log('Clearing stale cookies due to redirect loop')
+      clearStaleCookies()
+    }
+  }, [fromDashboard, clearStaleCookies])
+
+  // Separate effect for handling already authenticated users
+  useEffect(() => {
+    // If user is already authenticated and not coming from a redirect loop, go to dashboard
+    if (isAuthenticated && !fromDashboard && !isLoading) {
+      console.log('User already authenticated, redirecting to:', redirectTo)
+      router.push(redirectTo)
+    }
+  }, [isAuthenticated, fromDashboard, redirectTo, router, isLoading])
+
   const onSubmit = async (data: LoginInput) => {
     setSubmitError(null)
 
     try {
+      console.log('Attempting login...')
       const result = await login(data.email, data.password, data.rememberMe)
 
       if (result.success) {
+        console.log('Login successful, redirecting to:', redirectTo)
         // Mark as new login for notifications
         sessionStorage.setItem('newLogin', 'true')
 
-        // Small delay to ensure auth state is updated
+        // Use router.replace instead of push to avoid back button issues
+        // Add a small delay to ensure state is updated
         setTimeout(() => {
-          router.push(redirectTo)
-        }, 100)
+          router.replace(redirectTo)
+        }, 200)
       } else {
+        console.log('Login failed:', result.error)
         setSubmitError(result.error || 'Login failed. Please try again.')
       }
     } catch (error) {
-      setSubmitError('An unexpected error occurred. Please try again.')
       console.error('Login error:', error)
+      setSubmitError('An unexpected error occurred. Please try again.')
     }
   }
 

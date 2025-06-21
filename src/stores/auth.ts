@@ -75,11 +75,24 @@ export const useAuthStore = create<AuthState>()(
       // Login action
       login: async (email: string, password: string, rememberMe = false) => {
         set({ isLoading: true, error: null })
-        
+
         try {
-          const result = await loginUser({ email, password, rememberMe })
-          
+          console.log('Auth store: Attempting login via API...')
+
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ email, password, rememberMe })
+          })
+
+          const result = await response.json()
+          console.log('Auth store: Login API response:', { success: result.success, user: result.user?.firstName })
+
           if (result.success && result.accessToken && result.user) {
+            console.log('Auth store: Setting authenticated state', { user: result.user.firstName })
             set({
               isAuthenticated: true,
               user: result.user,
@@ -88,6 +101,7 @@ export const useAuthStore = create<AuthState>()(
               error: null
             })
           } else {
+            console.log('Auth store: Login failed:', result.error)
             set({
               isAuthenticated: false,
               user: null,
@@ -96,9 +110,10 @@ export const useAuthStore = create<AuthState>()(
               error: result.error || 'Login failed'
             })
           }
-          
+
           return result
         } catch (error) {
+          console.error('Auth store: Login error:', error)
           const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
           set({
             isAuthenticated: false,
@@ -107,7 +122,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             error: errorMessage
           })
-          
+
           return {
             success: false,
             error: errorMessage
@@ -118,9 +133,12 @@ export const useAuthStore = create<AuthState>()(
       // Logout action
       logout: async () => {
         set({ isLoading: true })
-        
+
         try {
-          await logoutUser()
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include'
+          })
         } catch (error) {
           console.error('Logout error:', error)
         } finally {
@@ -137,8 +155,13 @@ export const useAuthStore = create<AuthState>()(
       // Refresh token action
       refreshToken: async () => {
         try {
-          const result = await refreshAccessToken()
-          
+          const response = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            credentials: 'include'
+          })
+
+          const result = await response.json()
+
           if (result.success && result.accessToken && result.user) {
             set({
               isAuthenticated: true,
@@ -200,6 +223,18 @@ export const useAuthStore = create<AuthState>()(
           accessToken: null,
           error: null
         })
+      },
+
+      // Clear stale cookies
+      clearStaleCookies: async () => {
+        try {
+          await fetch('/api/auth/clear-cookies', {
+            method: 'POST',
+            credentials: 'include'
+          })
+        } catch (error) {
+          console.error('Failed to clear cookies:', error)
+        }
       },
 
       // Clear error
@@ -283,8 +318,8 @@ export const useRole = () => {
  * Hook for authentication actions
  */
 export const useAuthActions = () => {
-  const { login, logout, refreshToken, clearAuth, clearError } = useAuthStore()
-  return { login, logout, refreshToken, clearAuth, clearError }
+  const { login, logout, refreshToken, clearAuth, clearError, clearStaleCookies } = useAuthStore()
+  return { login, logout, refreshToken, clearAuth, clearError, clearStaleCookies }
 }
 
 // ============================================================================

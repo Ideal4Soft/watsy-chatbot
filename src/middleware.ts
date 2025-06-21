@@ -121,19 +121,25 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check for authentication by looking for refresh token cookie
-  // In Edge Runtime, we can't verify JWT tokens, so we just check for presence
+  // In Edge Runtime, we can't verify JWT tokens, so we use a simpler approach
   const refreshToken = request.cookies.get('refreshToken')?.value
-  const isAuthenticated = !!refreshToken
+  const accessToken = request.cookies.get('accessToken')?.value
 
-  // Handle authentication routes
-  if (isAuthRoute && isAuthenticated) {
-    // Redirect authenticated users away from auth pages
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+  // Consider user authenticated if they have both tokens
+  // The actual validation happens in the React components
+  const hasTokens = !!(refreshToken && accessToken)
+
+  // Handle authentication routes - be more permissive to avoid redirect loops
+  if (isAuthRoute) {
+    // For now, let React components handle all authentication logic
+    // This prevents middleware redirect loops
+    console.log('Auth route accessed:', pathname, 'hasTokens:', hasTokens)
+    return NextResponse.next()
   }
   
   // Handle protected routes
   if (isProtectedRoute) {
-    if (!isAuthenticated) {
+    if (!hasTokens) {
       // Redirect unauthenticated users to login
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('redirect', pathname)

@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const { isAuthenticated, user, isLoading } = useAuth()
   const { role, isAdmin, isSuperAdmin } = useRole()
-  const { logout } = useAuthActions()
+  const { logout, clearStaleCookies } = useAuthActions()
 
   // Debug logging
   console.log('Dashboard render:', { isLoading, isAuthenticated, user: user?.firstName, role })
@@ -47,9 +47,11 @@ export default function DashboardPage() {
     // Redirect to login if not authenticated
     if (!isLoading && !isAuthenticated) {
       console.log('Redirecting to login...')
+      // Clear any stale cookies before redirecting
+      clearStaleCookies()
       router.push('/login')
     }
-  }, [isAuthenticated, isLoading, router])
+  }, [isAuthenticated, isLoading, router, clearStaleCookies])
 
   const handleLogout = async () => {
     await logout()

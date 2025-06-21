@@ -14,7 +14,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth, useRole, useAuthActions } from '@/stores/auth'
-import { DashboardHeader } from '@/components/dashboard/dashboard-header'
+import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { MetricsCard } from '@/components/dashboard/metrics-card'
 import { QuickActions } from '@/components/dashboard/quick-actions'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
@@ -113,16 +113,12 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Modern Header */}
-      <DashboardHeader
-        user={user}
-        role={role || 'USER'}
-        onLogout={handleLogout}
-      />
-
-      {/* Main Dashboard Content */}
-      <main className="container mx-auto px-4 py-6 space-y-6">
+    <DashboardLayout
+      user={user}
+      role={role || 'USER'}
+      onLogout={handleLogout}
+    >
+      <div className="space-y-6">
         {/* Welcome Section */}
         <div className="flex flex-col space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">
@@ -350,7 +346,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   )
 }

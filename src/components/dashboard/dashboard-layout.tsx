@@ -15,27 +15,38 @@ interface DashboardLayoutProps {
   }
   role: string
   onLogout: () => void
+  showHeader?: boolean
 }
 
-export function DashboardLayout({ children, user, role, onLogout }: DashboardLayoutProps) {
+export function DashboardLayout({
+  children,
+  user,
+  role,
+  onLogout,
+  showHeader = true
+}: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
-      <div className="flex">
+      <div className="flex h-screen">
         {/* Sidebar */}
         <SidebarNav userRole={role} />
-        
-        {/* Main content */}
-        <div className="flex-1 md:ml-0">
+
+        {/* Main content area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <DashboardHeader 
-            user={user} 
-            role={role} 
-            onLogout={onLogout} 
-          />
-          
-          {/* Page content */}
-          <main className="container mx-auto px-4 py-6">
-            {children}
+          {showHeader && (
+            <DashboardHeader
+              user={user}
+              role={role}
+              onLogout={onLogout}
+            />
+          )}
+
+          {/* Page content with scroll */}
+          <main className="flex-1 overflow-y-auto">
+            <div className="container mx-auto px-4 py-6 max-w-7xl">
+              {children}
+            </div>
           </main>
         </div>
       </div>

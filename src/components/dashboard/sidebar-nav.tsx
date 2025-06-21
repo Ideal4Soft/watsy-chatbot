@@ -17,7 +17,12 @@ import {
   FileText,
   Menu,
   X,
-  ChevronDown
+  ChevronDown,
+  Shield,
+  Activity,
+  Database,
+  Bell,
+  HelpCircle
 } from 'lucide-react'
 
 interface NavItem {
@@ -76,6 +81,11 @@ export function SidebarNav({ userRole, className }: SidebarNavProps) {
       title: 'Analytics',
       href: '/analytics',
       icon: BarChart3
+    },
+    {
+      title: 'Activity',
+      href: '/activity',
+      icon: Activity
     }
   ]
 
@@ -83,17 +93,22 @@ export function SidebarNav({ userRole, className }: SidebarNavProps) {
     {
       title: 'Administration',
       href: '/admin',
-      icon: Settings,
+      icon: Shield,
       children: [
         {
-          title: 'Users',
+          title: 'User Management',
           href: '/admin/users',
           icon: Users
         },
         {
-          title: 'Analytics',
+          title: 'Advanced Analytics',
           href: '/admin/analytics',
           icon: BarChart3
+        },
+        {
+          title: 'Notifications',
+          href: '/admin/notifications',
+          icon: Bell
         }
       ]
     }
@@ -103,10 +118,10 @@ export function SidebarNav({ userRole, className }: SidebarNavProps) {
     {
       title: 'System',
       href: '/admin/system',
-      icon: Settings,
+      icon: Database,
       children: [
         {
-          title: 'Settings',
+          title: 'System Settings',
           href: '/admin/system/settings',
           icon: Settings
         },
@@ -114,6 +129,11 @@ export function SidebarNav({ userRole, className }: SidebarNavProps) {
           title: 'Audit Logs',
           href: '/admin/audit-logs',
           icon: FileText
+        },
+        {
+          title: 'Database',
+          href: '/admin/database',
+          icon: Database
         }
       ]
     }
@@ -239,11 +259,23 @@ export function SidebarNav({ userRole, className }: SidebarNavProps) {
             ))}
           </nav>
 
+          {/* Help Section */}
+          <div className="px-4 py-2">
+            <Link
+              href="/help"
+              className="flex items-center space-x-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <HelpCircle className="h-4 w-4" />
+              <span>Help & Support</span>
+            </Link>
+          </div>
+
           {/* Footer */}
           <div className="p-4 border-t">
-            <div className="text-xs text-muted-foreground">
-              <p>Version 1.0.0</p>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p className="font-medium">Watsy-Chatbot v1.0.0</p>
               <p>© 2024 Ideal4Soft</p>
+              <p className="text-[10px] opacity-75">WhatsApp Management Platform</p>
             </div>
           </div>
         </div>
